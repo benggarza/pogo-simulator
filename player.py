@@ -1,17 +1,17 @@
 class Player:
-    def __init__():
-        player_label = ""
+    def __init__(self):
+        self.player_label = ""
 
-        team_builder = None
-        player_model = None
-        opponent = None
+        self.team_builder = None
+        self.player_model = None
+        self.opponent = None
 
-        team = []
-        lead_index = -1
+        self.team = []
+        self.lead_index = -1
 
-        prev_action = None
-        switch_timer = 0
-        shields = 2
+        self.prev_action = None
+        self.switch_timer = 0
+        self.shields = 2
 
     def set_team_builder(self, tb):
         self.team_builder = tb
@@ -22,24 +22,36 @@ class Player:
     def set_opponent(self, o):
         self.opponent = o
 
+    def get_opponent(self):
+        return self.opponent
+
     def team_empty(self):
         return len(self.team) == 0
 
     def set_player(self, player_label):
         self.player_label = player_label
 
+    def get_player(self):
+        return self.player_label
+
     def choose_team(self, cup):
-        team = self.team_builder.choose_team(cup)
-        return team
+        self.team = self.team_builder.choose_team(cup)
+        self.lead_index = 0
+        for i in range(3):
+            self.team[i].set_team_index(i)
+        return self.team
+
+    def get_team(self):
+        return self.team
 
     def get_lead(self):
         return self.team[self.lead_index]
 
     def get_party(self):
-        return [p for p in self.team if not p.fainted() and p.team_index != self.lead_index]
+        return [p for p in self.team if p.team_index != self.lead_index]
 
     def get_num_remaining_pokemon(self):
-        return 3 - len([p for p in self.team if not p.fainted()])
+        return 3 - len([p for p in self.team if p.fainted()])
 
     def reset_stats(self):
         self.prev_action = None
@@ -65,11 +77,12 @@ class Player:
 
             # if we have two options, choose an option
             if self.get_num_remaining_pokemon() == 3:
-                action['arg'] = self.player_model.choose_switch(state, self.team[self.party_index[0]], self.team[self.party_index[1]])
+                party = self.get_party()
+                action['arg'] = self.player_model.choose_switch(state, party[0], party[1])
 
             # otherwise we just have one option
             else: # remaining pokemon is 2
-                action['arg'] = self.party_index[0]
+                action['arg'] = self.get_party()[0].get_team_index()
             return action
 
         ### do we wait?
@@ -79,7 +92,7 @@ class Player:
         
         ### otherwise we attack
         # do we want to use a fast move, or is that our only option
-        charged_moves_ready = self.team[self.lead_index].charged_moves_ready()
+        charged_moves_ready = self.team[self.lead_index].get_ready_charged()
         if len(charged_moves_ready) == 0 or self.player_model.fast_or_charged(state) == 'fast':
             action['type'] = 'fast'
             return action
@@ -87,10 +100,17 @@ class Player:
         ### otherwise use a charged attack
         action['type'] = 'charged'
         if len(charged_moves_ready) == 1:
-            action['arg'] = charged_moves_ready[0].charged_move_index
+            action['arg'] = charged_moves_ready[0]['charged_move_label']
         else: # we need to choose between both options
             action['arg'] = self.player_model.choose_charged_move(state, charged_moves_ready['a'], charged_moves_ready['b'])
         return action
+
+    def choose_force_switch(self, state):
+        if self.get_num_remaining_pokemon() != 2:
+            raise Exception("Error: choose_force_switch was called with player not having two switch options")
+        party = self.get_party()
+        return  self.team[self.player_model.choose_switch(state, party[0], party[1])]
+
 
     def set_prev_action(self, prev_action):
         self.prev_action = prev_action
@@ -99,7 +119,7 @@ class Player:
         return self.prev_action
 
     def swap_lead(self, p):
-        self.lead_index = p.team_index
+        self.lead_index = p.get_team_index()
 
     def get_shields(self):
         return self.shields
@@ -125,9 +145,7 @@ class Player:
         return state
 
     def __str__(self):
-        s = "Player" + self.player_label
-        s += "\tusing model " + self.player_model
-        s += "\nRemaining Pokemon: " + self.get_num_remaining_pokemon()
-        s += "\tShields: " + self.get_shields()
-        s += "\nSwitch Timer: " + self.get_switch_timer()
+        s = f"Player {self.player_label} | model {self.player_model}"
+        s += f" | Remaining Pokemon: {self.get_num_remaining_pokemon()} | Shields: {self.get_shields()}"
+        s += f" | Switch Timer: {self.get_switch_timer()}"
         return s

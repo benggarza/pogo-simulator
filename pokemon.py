@@ -1,21 +1,29 @@
+from math import floor
 class Pokemon:
-    def __init__():
-        team_index = -1
-        player=None
+    def __init__(self, pokemon_id, name, types, base_atk, base_def, base_sta):
+        self.team_index = -1
+        self.player=None
 
-        types = []
+        self.types = []
 
-        name = ""
-        cp = 0
-        atk_iv = 0
-        def_iv = 0
-        sta_iv = 0
-        atk_stat = 0
-        def_stat = 0
-        sta_stat = 0 # same as to full HP
+        self.name = name
+        self.pokemon_id = pokemon_id
+        self.level = 1
+        self.cpm = 0.094
+        self.atk_iv = 0
+        self.def_iv = 0
+        self.sta_iv = 0
+        self.base_atk = base_atk
+        self.base_def = base_def
+        self.base_sta = base_sta
+        self.atk_stat = 0
+        self.def_stat = 0
+        self.sta_stat = 0 # same as to full HP
+        self.shadow = False
 
-        fast_move = None
-        charged_moves = {'a': None, 'b': None}
+        self.cp = 0
+        self.fast_move = None
+        self.charged_moves = {'a': None, 'b': None}
 
         '''
         boosts modify attack and defense stats as follows:
@@ -29,22 +37,52 @@ class Pokemon:
         +3: x (4+3)/4
         +4: x (4+4)/4
         '''
-        atk_boost = 0 
-        def_boost = 0
-        cooldown = 0
-        hp = 0
-        energy = 0
-        shown = False
+        self.atk_boost = 0 
+        self.def_boost = 0
+        self.cooldown = 0
+        self.hp = 0
+        self.energy = 0
+        self.shown = False
+
+    def get_level(self):
+        return self.level
+
+    def set_level_cpm(self, l, cpm):
+        self.level = l
+        self.cpm = cpm
+        self.update_stats()
+
+    def set_ivs(self, atk_iv, def_iv, sta_iv):
+        self.atk_iv = atk_iv
+        self.def_iv = def_iv
+        self.sta_iv = sta_iv
+        self.update_stats()
+    
+    def get_cp(self):
+        return self.cp
+    
+    def update_stats(self):
+        self.atk_stat = (self.base_atk + self.atk_iv)*self.cpm*(1.2 if self.shadow else 1.0)
+        self.def_stat = (self.base_def + self.def_iv)*self.cpm/(1.2 if self.shadow else 1.0)
+        self.sta_stat = (self.base_sta + self.sta_iv)*self.cpm
+        self.hp = floor(self.sta_stat)
+        self.cp = floor(self.atk_stat*pow(self.def_stat, 1/2)*pow(self.sta_stat, 1/2)/10)
 
     def reset_stats(self):
         self.atk_boost = 0
         self.def_boost = 0
         self.cooldown = 0
-        self.hp = self.sta_stat
+        self.hp = floor(self.sta_stat)
         self.energy = 0
+    
+    def set_team_index(self, ind):
+        self.team_index = ind
+    
+    def get_team_index(self):
+        return self.team_index
 
     def fainted(self):
-        return self.hp > 0
+        return self.hp == 0
 
     def has_been_shown(self):
         return self.shown
@@ -61,11 +99,17 @@ class Pokemon:
     def get_fast_move(self):
         return self.fast_move
 
+    def set_fast_move(self, fast_move):
+        self.fast_move = fast_move
+
     def has_second_charged(self):
         return self.charged_moves['b'] is not None
 
     def get_all_charged(self):
         return self.charged_moves
+
+    def get_charged_move(self, label):
+        return self.charged_moves[label]
 
     def get_ready_charged(self):
         if self.charged_moves['a'] is None:
@@ -73,13 +117,20 @@ class Pokemon:
 
         charged_moves_ready = []
         
-        if self.energy >= self.charged_moves['a'].energy_cost:
+        if self.energy >= self.charged_moves['a']['energy_cost']:
             charged_moves_ready.append(self.charged_moves['a'])
 
-        if self.charged_moves['b'] is not None and self.energy >= self.charged_moves['b'].energy_cost:
+        if self.charged_moves['b'] is not None and self.energy >= self.charged_moves['b']['energy_cost']:
             charged_moves_ready.append(self.charged_moves['b'])
 
         return charged_moves_ready
+
+    def set_charged_moves(self, charged_move_a, charged_move_b = None):
+        self.charged_moves['a'] = charged_move_a
+        charged_move_a['charged_move_label'] = 'a'
+        self.charged_moves['b'] = charged_move_b
+        if charged_move_b is not None:
+            charged_move_b['charged_move_label'] = 'b'
 
     def boost_atk(self, stages):
         self.atk_boost = min(max(-4, self.atk_boost + stages), 4)
@@ -139,14 +190,18 @@ class Pokemon:
             state['charged_move_b'] = self.charged_moves['b']
         return state
 
-    def __str__(self):
-        s = "" + self.name + " | CP" + self.cp + \
-                "; IV " + self.atk_iv + "/" + self.def_iv + "/" + self.sta_iv + \
-                "\n" + self.fast_move['name'] + "/" + \
-                self.charged_moves['a']['name'] + ("(READY)" if self.charged_moves['a'] in self.get_ready_charged() else "") + \
-                ("/"+self.charged_moves['b']['name'] + ("(READY)" if self.charged_moves['b'] in self.get_ready_charged() else "")) if self.has_second_charged() else ""
+    def get_name(self):
+        return self.name
 
-        s += "\nHP Remaining: " + self.hp + "; Energy: " + self.energy
-        s += "\nAtk Boost: " + self.atk_boost + "; Def Boost: " + self.def_boost
-        s += "\nCooldown: " + self.cooldown
+    def __str__(self):
+        s = f"{self.name} | CP {self.cp} | IV{self.atk_iv}/{self.def_iv}/{self.sta_iv} | "
+        s += f"{self.fast_move['name']}"
+        s += f"/{self.charged_moves['a']['name']}"
+        s += "(READY)" if self.charged_moves['a'] in self.get_ready_charged() else ""
+        if self.charged_moves['b'] is not None:
+            s += f"/{self.charged_moves['b']['name']}"
+            s += "(READY)" if self.charged_moves['b'] in self.get_ready_charged() else ""
+        s += f" | HP Remaining: {self.hp} | Energy: {self.energy}"
+        s += f" | Atk Boost: {self.atk_boost} | Def Boost: {self.def_boost}"
+        s += f" | Cooldown: {self.cooldown}"
         return s
