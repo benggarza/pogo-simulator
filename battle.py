@@ -90,14 +90,16 @@ class Battle:
             action_type = action['type']
             action_arg = action['arg']
             if action_type == "fast":
-                prev_action = action_player.get_prev_action()
+                prev_action = action_player.get_prev_action()['type']
                 if prev_action == "fast":
                     if self.turn - action_turn >= action_player.get_lead().get_fast_move()['cooldown'] - 1:
+                        print(f"Action waiting for {self.turn - action_turn} turns")
+                        print(f"Required wait time {action_player.get_lead().get_fast_move()['cooldown'] - 1}")
                         action['priority'] += 20
                     else:
                         action_queue.remove(action)
                 if prev_action == "charged":
-                    if self.turn - action.turn >= 1:
+                    if self.turn - action_turn >= 1:
                         action['priority'] += 20
                     else:
                         action_queue.remove(action)
@@ -146,14 +148,14 @@ class Battle:
                 if poke.fainted():
                     self.force_switch(player)
 
+        # Increment turn
+        self.turn += 1
+
         # Add state to memory
         self.update_state()
         self.record_state()
         if self.verbose:
             self.print_battle_state()
-
-        # Increment turn
-        self.turn += 1
 
         return None
 

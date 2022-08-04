@@ -4,9 +4,11 @@ from random_model import RandomModel
 from manual_team import ManualTeam
 from game_master import GameMaster
 gm = GameMaster()
-team_ids = ['machamp','mewtwo','skarmory']
+a_team_ids = ['machamp','reshiram','skarmory']
+b_team_ids = ['dialga', 'swampert', 'togekiss']
 random_model = RandomModel()
-manual_builder = ManualTeam(gm, team_ids)
+a_manual_builder = ManualTeam(gm, a_team_ids)
+b_manual_builder = ManualTeam(gm, b_team_ids)
 
-mm = ModelMaster(gm, manual_builder, random_model, manual_builder, random_model, 1)
+mm = ModelMaster(gm, a_manual_builder, random_model, b_manual_builder, random_model, 10)
 mm.run()

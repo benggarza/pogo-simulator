@@ -9,7 +9,7 @@ class Player:
         self.team = []
         self.lead_index = -1
 
-        self.prev_action = None
+        self.prev_action = {'type': None, 'turn': 0}
         self.switch_timer = 0
         self.shields = 2
 
@@ -54,7 +54,7 @@ class Player:
         return 3 - len([p for p in self.team if p.fainted()])
 
     def reset_stats(self):
-        self.prev_action = None
+        self.prev_action = {'type': None, 'turn': 0}
         self.switch_timer = 0
         self.shields = 2
 
