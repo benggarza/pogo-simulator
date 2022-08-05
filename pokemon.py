@@ -4,7 +4,7 @@ class Pokemon:
         self.team_index = -1
         self.player=None
 
-        self.types = []
+        self.types = types
 
         self.name = name
         self.pokemon_id = pokemon_id
@@ -60,6 +60,9 @@ class Pokemon:
     
     def get_cp(self):
         return self.cp
+
+    def get_types(self):
+        return self.types
     
     def update_stats(self):
         self.atk_stat = (self.base_atk + self.atk_iv)*self.cpm*(1.2 if self.shadow else 1.0)
@@ -174,6 +177,9 @@ class Pokemon:
 
     def decrease_cooldown(self, turns=1):
         self.cooldown = max(0, self.cooldown - turns)
+    
+    def get_cooldown(self):
+        return self.cooldown
 
     def state_dict(self):
         state = {}
@@ -192,6 +198,9 @@ class Pokemon:
 
     def get_name(self):
         return self.name
+
+    def get_id(self):
+        return self.pokemon_id
 
     def __str__(self):
         s = f"{self.name} | CP {self.cp} | IV{self.atk_iv}/{self.def_iv}/{self.sta_iv} | "

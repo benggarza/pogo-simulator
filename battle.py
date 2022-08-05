@@ -11,7 +11,7 @@ class Battle:
     def __init__(self, gm):
         self.gm = gm
 
-        self.turn = 1
+        self.turn = 0
         self.timer = 0
         self.players={'a': None,'b': None}
         self.leads={'a': None, 'b': None}
@@ -41,17 +41,11 @@ class Battle:
             for p in player.team:
                 p.reset_stats()
 
-        print("Starting battle!")
-        # Prepare turn 1 state
-        self.update_state()
-        self.record_state()
-        if self.verbose:
-            self.print_battle_state()
-        
+        print("Starting battle!")      
         # simulation starts here
         while self.turn <= 480:
-            # reduce timer
-            self.timer = max(self.timer-0.5, 0)
+            # increase timer
+            self.timer += 0.5
 
             # reduce cooldown for each pokemon
             for poke in self.leads.values():
@@ -70,6 +64,15 @@ class Battle:
     # Process one turn of a battle
     def step(self):
 
+        # Increment turn
+        self.turn += 1
+
+        # Add state to memory
+        self.update_state()
+        self.record_state()
+        if self.verbose:
+            self.print_battle_state()
+
         # Check if game is over
         if self.turn > 480:
             raise Exception("Error: attempted to execute turn past 480")
@@ -82,6 +85,7 @@ class Battle:
         action_queue = []
         for player in self.players.values():
             action_queue.append(player.get_action(self.state))
+        self.log(f"\tstep(), turn {self.turn}: action_queue before processing: {action_queue}")
         
         # Check validity of each action and evaluate priority
         for action in action_queue:
@@ -92,49 +96,60 @@ class Battle:
             if action_type == "fast":
                 prev_action = action_player.get_prev_action()['type']
                 if prev_action == "fast":
-                    if self.turn - action_turn >= action_player.get_lead().get_fast_move()['cooldown'] - 1:
-                        print(f"Action waiting for {self.turn - action_turn} turns")
-                        print(f"Required wait time {action_player.get_lead().get_fast_move()['cooldown'] - 1}")
+                    # I don't understand why these conditions are here
+                    """if self.turn - action_turn >= action_player.get_lead().get_cooldown() - 1:
                         action['priority'] += 20
                     else:
+                        self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} ???")
+                        self.log(f"\tstep(), turn {self.turn}: the weird condition: {self.turn - action_turn} is < {action_player.get_lead().get_fast_move()['cooldown'] - 1}")
                         action_queue.remove(action)
-                if prev_action == "charged":
+                elif prev_action == "charged":
                     if self.turn - action_turn >= 1:
                         action['priority'] += 20
                     else:
-                        action_queue.remove(action)
-                # TODO remove fast move if not valid
+                        self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} needs to wait 1 turn after a charged move")
+                        action_queue.remove(action)"""
+                if action_player.get_lead().get_cooldown()-1 > 0:
+                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} cooldown is over 2")
+                    action_queue.remove(action)
             elif action_type == "charged":
                 attacker = action_player.get_lead()
                 if attacker.get_energy() < attacker.get_charged_move(action_arg)['energy_cost']:
+                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {attacker.get_name()} (energy {attacker.get_energy()}) doesn't have enough energy for charged move {attacker.get_charged_move[action_arg]['name']}")
                     action_queue.remove(action)
             elif action_type == "switch":
                 if action_player.get_switch_timer() > 0:
+                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because player {action_player.get_player()}'s switch timer is on")
                     action_queue.remove(action)
                 
         # Sort actions based on priority
         action_queue.sort(key=lambda action: action['priority'], reverse=True)
+        self.log(f"\tstep(), turn {self.turn}: action_queue after processing {action_queue}")
 
         # Execute actions in priority order
         for action in action_queue:
+            self.log(f"\tstep(), turn {self.turn}: {action}")
             self.execute_action(action)
             self.record_action(action)
             # TODO don't execute charged move if a priority move faints opposing pokemon
             # right now will cancel any action
             defender_lead = self.players[action['player']].get_opponent().get_lead()
             if action['priority'] > 0 and defender_lead.fainted():
+                self.log(f"\tstep(), turn {self.turn}: high priority fast move made pokemon faint, no more actions will be executed")
                 action_queue = []
                 break
             # Clear all other actions after a charged move
             if action['type'] == 'charged':
+                self.log(f"\tstep(), turn {self.turn}: charged move reached, no more actions will be executed")
                 action_queue = []
                 break
 
         # Check if a pokemon fainted
         fainted = False
         for (poke, player) in zip(self.leads.values(), self.players.values()):
+            self.log(f"\tstep(), turn {self.turn}: {poke.get_name()}: {poke.get_hp()}")
             if poke.fainted():
-                print(f"Player {player.get_player()}'s pokemon {player.get_lead().get_name()} fainted")
+                self.log(f"Player {player.get_player()}'s pokemon {poke.get_name()} fainted")
                 fainted = True
 
         if fainted:
@@ -146,21 +161,14 @@ class Battle:
             # Check if a force switch is needed
             for (poke, player) in zip(self.leads.values(), self.players.values()):
                 if poke.fainted():
+                    self.log(f"\tstep(), turn {self.turn}: forcing player {player.get_player()} to switch")
                     self.force_switch(player)
-
-        # Increment turn
-        self.turn += 1
-
-        # Add state to memory
-        self.update_state()
-        self.record_state()
-        if self.verbose:
-            self.print_battle_state()
 
         return None
 
         
     def force_switch(self, player):
+        self.log(f"\tforce_switch(), turn {self.turn}: player has {player.get_num_remaining_pokemon()} pokes left")
         if player.get_num_remaining_pokemon() == 0:
             raise Exception("Error: Battle entered force switch on player with zero party pokemon left")
         switch_poke = None
@@ -173,7 +181,8 @@ class Battle:
             else:
                 switch_poke = party[0]
         player.swap_lead(switch_poke)
-        print(f"Player {player.get_player()} switches in {player.get_lead().get_name()}")
+        self.leads[player.get_player()] = player.get_lead()
+        self.log(f"Player {player.get_player()} switches in {switch_poke.get_name()} with {switch_poke.get_hp()} hp")
 
     def execute_action(self, action):
         action_type = action['type']
@@ -206,9 +215,9 @@ class Battle:
                     shield = opponent.decide_shield(self.state)
             boosted_atk_stat = attacker.get_boosted_atk()
             boosted_def_stat = defender.get_boosted_def()
-            stab = 1.2 if attacker.get_fast_move()['type'] in attacker.types else 1.0
+            stab = 1.2 if attacker.get_fast_move()['type'] in attacker.get_types() else 1.0
             effectiveness = 1.0
-            for type in defender.types:
+            for type in defender.get_types():
                 if type is not None:
                     effectiveness *= self.gm.get_type_effectiveness(move['type'], type)
             damage = floor(0.5 * move['power'] * (boosted_atk_stat/boosted_def_stat) * stab * effectiveness) + 1
@@ -244,8 +253,7 @@ class Battle:
 
 
         player.set_prev_action(action)
-        if self.verbose:
-            print(message)
+        self.log(message)
 
     def record_action(self, action):
         self.action_history.append(deepcopy(action))
@@ -284,11 +292,15 @@ class Battle:
     def record_state(self):
         self.state_history.append(deepcopy(self.state))
 
+    def log(self, stmt):
+        if self.verbose:
+            print(stmt)
+
     def print_battle_state(self):
-        print("\nTurn: ", self.turn)
+        self.log(f"\nTurn: {self.turn}")
         player_a = self.players['a']
         player_b = self.players['b']
-        print(player_a)
-        print(f"Lead Pokemon: {player_a.get_lead()}")
-        print(player_b)
-        print(f"Lead Pokemon: {player_b.get_lead()}")
+        self.log(player_a)
+        self.log(f"Lead Pokemon: {player_a.get_lead()}")
+        self.log(player_b)
+        self.log(f"Lead Pokemon: {player_b.get_lead()}")

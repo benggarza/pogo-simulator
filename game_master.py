@@ -87,5 +87,5 @@ class GameMaster:
         return self.level_cpm[self.level_cpm['level'] == level].iloc[0]['cpm']
 
     def get_type_effectiveness(self, attack_type, defender_type):
-        return self.type_effectiveness[self.type_effectiveness['attack_type_id'] == attack_type.upper() and \
-                                        self.type_effectiveness['defender_type_id'] == defender_type.upper()].iloc[0]['multiplier']
+        return self.type_effectiveness[(self.type_effectiveness['attack_type_id'] == attack_type.upper()) & \
+                                        (self.type_effectiveness['defender_type_id'] == defender_type.upper())].iloc[0]['multiplier']
