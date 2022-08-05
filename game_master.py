@@ -50,6 +50,8 @@ class GameMaster:
     def new_pokemon(self, pokemon_id):
         pd = self.get_pokemon_dict(pokemon_id)
         p = Pokemon(pokemon_id, pd['name'], pd['types'], pd['base_atk'], pd['base_def'], pd['base_sta'])
+        if 'shadow' in pd['pokemon_id']:
+            p.set_shadow(True)
         return p
 
     def get_fast_move(self, move_id):

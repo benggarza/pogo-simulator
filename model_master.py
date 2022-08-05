@@ -2,8 +2,9 @@ from math import inf
 from battle_engine import BattleEngine
 from player import Player
 from random import randint
+import pandas as pd
 class ModelMaster:
-    def __init__(self, gm, team_builder_a, model_a, team_builder_b, model_b, max_battles, training_interval=5, verbose=False):
+    def __init__(self, gm, team_builder_a, model_a, team_builder_b, model_b, max_battles, training_interval=5, verbose=False, train=False):
         self.gm = gm
         self.battle_engine = BattleEngine(self.gm, verbose=verbose)
         self.player_a = Player()
@@ -20,14 +21,15 @@ class ModelMaster:
 
         self.max_battles = max_battles
         self.training_interval = training_interval
+        self.train = train
 
         self.state_history = []
         self.action_history = []
 
     def run(self):
-        battle_num = 0
+        battle_num = 1
         # TODO include condition to check if models are plateauing
-        while battle_num < self.max_battles:
+        while battle_num <= self.max_battles:
             # randomly choose cup
             cup = [{'name': "Great", 'cp': 1500}, {'name': "Ultra", 'cp': 2500}, {'name': "Master", 'cp': inf}][randint(0,2)]
             print(f"Playing in {cup['name']} league")
@@ -47,16 +49,26 @@ class ModelMaster:
             self.action_history.append(history['action'])
             self.record[history['winner']] += 1
 
-            # At given interval, train models on new history data
+            # At given interval, train models on new history data and save history data to file
             if battle_num % self.training_interval == 0:
-                self.model_a.train((self.state_history, self.action_history))
-                self.model_b.train((self.state_history, self.action_history))
-                # clear histories after training
-                self.state_history = []
-                self.action_history = []
-
+                if self.train:
+                    self.model_a.train((self.state_history, self.action_history))
+                    self.model_b.train((self.state_history, self.action_history))
+                self.write_history()
+            
             print(f"Player {history['winner']} wins by a margin of {history['win_margin']}")
             battle_num += 1
 
         print('Finished simulating')
-        print(f"After {battle_num} battles, player A has {self.record['A']} wins, and player B has {self.record['B']} wins")
+        print(f"After {battle_num-1} battles, player A has {self.record['A']} wins, and player B has {self.record['B']} wins")
+
+        # Save any leftover data
+        self.write_history()
+
+    def write_history(self):
+        state_history_df = pd.concat([pd.read_json('state_history.json', typ='series', orient='records'), pd.Series(self.state_history)], ignore_index=True)
+        state_history_df.to_json("state_history.json")
+        action_history_df = pd.concat([pd.read_json('action_history.json', typ='series', orient='records'), pd.Series(self.action_history)], ignore_index=True)
+        action_history_df.to_json("action_history.json")
+        self.state_history = []
+        self.action_history = []

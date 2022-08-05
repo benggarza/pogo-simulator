@@ -114,6 +114,9 @@ class Pokemon:
     def get_charged_move(self, label):
         return self.charged_moves[label]
 
+    def set_shadow(self, shadow):
+        self.shadow = shadow
+
     def get_ready_charged(self):
         if self.charged_moves['a'] is None:
             raise Exception("Error: Pokemon has no charged moves")

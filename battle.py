@@ -4,7 +4,6 @@ from pokemon import Pokemon
 from math import floor
 from random import random
 from copy import deepcopy
-from json import dumps
 
 
 class Battle:
@@ -16,6 +15,7 @@ class Battle:
         self.players={'a': None,'b': None}
         self.leads={'a': None, 'b': None}
         self.phase= "neutral"
+        self.action_queue = []
         self.state={}
         self.state_history = []
         self.action_history = []
@@ -82,67 +82,108 @@ class Battle:
             raise Exception('Error: attempted to process a turn of battle in a not neutral game state')
         
         # Get player actions
-        action_queue = []
+        # Indicate if a charged move is queued
+        charged_move_queued = False
         for player in self.players.values():
-            action_queue.append(player.get_action(self.state))
-        self.log(f"\tstep(), turn {self.turn}: action_queue before processing: {action_queue}")
-        
+            action = player.get_action(self.state)
+            self.action_queue.append(action)
+            if action['type'] == 'charged':
+                charged_move_queued = True
+
+        turn_action_queue = []
+        charged_move_this_turn = {'a': False, 'b': False}
         # Check validity of each action and evaluate priority
-        for action in action_queue:
+        # Indicate if a charged move will be used this turn for CMP
+        self.log(f"\tstep(), turn {self.turn}: PROCESSING QUEUED ACTIONS")
+        for action in self.action_queue:
             action_turn = action['turn']
             action_player = self.players[action['player']]
             action_type = action['type']
             action_arg = action['arg']
+            self.log(f"\tstep(), turn {self.turn}: processing queued action {action}")
+
+            valid = False
             if action_type == "fast":
                 prev_action = action_player.get_prev_action()['type']
-                if prev_action == "fast":
-                    # I don't understand why these conditions are here
-                    """if self.turn - action_turn >= action_player.get_lead().get_cooldown() - 1:
-                        action['priority'] += 20
-                    else:
-                        self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} ???")
-                        self.log(f"\tstep(), turn {self.turn}: the weird condition: {self.turn - action_turn} is < {action_player.get_lead().get_fast_move()['cooldown'] - 1}")
-                        action_queue.remove(action)
-                elif prev_action == "charged":
-                    if self.turn - action_turn >= 1:
-                        action['priority'] += 20
-                    else:
-                        self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} needs to wait 1 turn after a charged move")
-                        action_queue.remove(action)"""
-                if action_player.get_lead().get_cooldown()-1 > 0:
-                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {action_player.get_lead().get_name()} cooldown is over 2")
-                    action_queue.remove(action)
+                
+                if self.turn - action_turn >= action_player.get_lead().get_fast_move()['cooldown'] - 1:
+                    valid = True
+                    action['priority'] += 20
+                    self.log(f"\tstep(), turn {self.turn}: Action {action} given higher priority for waiting the required time to pass")
+                elif charged_move_queued:
+                    valid = True
+                    action['priority'] -= 20
+                    self.log(f"\tstep(), turn {self.turn}: Action {action} given lower priority because a charged move is queued")
+                
             elif action_type == "charged":
                 attacker = action_player.get_lead()
                 if attacker.get_energy() < attacker.get_charged_move(action_arg)['energy_cost']:
-                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {attacker.get_name()} (energy {attacker.get_energy()}) doesn't have enough energy for charged move {attacker.get_charged_move[action_arg]['name']}")
-                    action_queue.remove(action)
+                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {attacker.get_name()} (energy {attacker.get_energy()}) doesn't have enough energy for charged move {attacker.get_charged_move(action_arg)['name']}")
+                    self.action_queue.remove(action)
+                else:
+                    # CMP Calculation
+                    charged_move_this_turn[action_player.get_player()] = True
+                    attacker = self.leads[action_player.get_player()]
+                    defender = self.leads[action_player.get_opponent().get_player()]
+                    if charged_move_this_turn[action_player.get_opponent().get_player()]:
+                        if attacker.get_boosted_atk() > defender.get_boosted_atk():
+                            self.log(f"\tstep(), turn {self.turn}: CMP goes to {attacker.get_name()}")
+                            action['priority'] += 10
+                        elif attacker.get_boosted_atk() < defender.get_boosted_atk():
+                            self.log(f"\tstep(), turn {self.turn}: CMP goes to {defender.get_name()}")
+                            action['priority'] -= 10
+                    valid = True
             elif action_type == "switch":
                 if action_player.get_switch_timer() > 0:
                     self.log(f"\tstep(), turn {self.turn}: removing action {action} because player {action_player.get_player()}'s switch timer is on")
-                    action_queue.remove(action)
+                    self.action_queue.remove(action)
+                else:
+                    valid = True
+            elif action_type == "wait":
+                valid = True
+
+            if valid:
+                turn_action_queue.append(action)
+                self.action_queue.remove(action)
                 
         # Sort actions based on priority
-        action_queue.sort(key=lambda action: action['priority'], reverse=True)
-        self.log(f"\tstep(), turn {self.turn}: action_queue after processing {action_queue}")
+        turn_action_queue.sort(key=lambda action: action['priority'], reverse=True)
 
         # Execute actions in priority order
-        for action in action_queue:
-            self.log(f"\tstep(), turn {self.turn}: {action}")
-            self.execute_action(action)
-            self.record_action(action)
-            # TODO don't execute charged move if a priority move faints opposing pokemon
-            # right now will cancel any action
-            defender_lead = self.players[action['player']].get_opponent().get_lead()
-            if action['priority'] > 0 and defender_lead.fainted():
-                self.log(f"\tstep(), turn {self.turn}: high priority fast move made pokemon faint, no more actions will be executed")
-                action_queue = []
-                break
-            # Clear all other actions after a charged move
-            if action['type'] == 'charged':
-                self.log(f"\tstep(), turn {self.turn}: charged move reached, no more actions will be executed")
-                action_queue = []
-                break
+        charged_move_executed = {'a': False, 'b': False}
+        self.log(f"\tstep(), turn {self.turn}: PROCESSING TURN ACTIONS")
+        while len(turn_action_queue) > 0:
+            # Dequeue action from queue
+            action = turn_action_queue[0]
+            turn_action_queue.remove(action)
+            self.log(f"\tstep(), turn {self.turn}: processing turn action {action}")
+
+            action_turn = action['turn']
+            action_player = self.players[action['player']]
+            action_attacker = action_player.get_lead()
+            action_defender = action_player.get_opponent().get_lead()
+            action_type = action['type']
+            action_arg = action['arg']
+
+            valid = True
+
+            # We let two opposing fast moves execute even if one makes a pokemon faint first (what about priority fast moves?)
+            if action_type == 'fast' and (action_defender.fainted() or (True in charged_move_executed.values() and action_attacker.fainted())):
+                self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because either opponent is already fainted or pokemon was fainted by a charged move")
+                valid = False
+            elif action_type =='charged':
+                if True in charged_move_executed.values():
+                    self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because a previous charged move was executed")
+                    valid = False
+                else:
+                    charged_move_executed[action['player']] = True
+            elif action_attacker.fainted():
+                self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because pokemon fainted by prior move this turn")
+                valid = False
+            if valid:
+                self.log(f"\tstep(), turn {self.turn}: {action}")
+                self.execute_action(action)
+                self.record_action(action)
 
         # Check if a pokemon fainted
         fainted = False
@@ -257,10 +298,6 @@ class Battle:
 
     def record_action(self, action):
         self.action_history.append(deepcopy(action))
-    
-    def save_action_history(self, filename='action_history.json'):
-        with open(filename, 'a') as f:
-            f.write(dumps(self.action_history))
 
     def end_game(self):
         # record final game state
