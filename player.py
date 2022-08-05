@@ -102,7 +102,7 @@ class Player:
         if len(charged_moves_ready) == 1:
             action['arg'] = charged_moves_ready[0]['charged_move_label']
         else: # we need to choose between both options
-            action['arg'] = self.player_model.choose_charged_move(state, charged_moves_ready['a'], charged_moves_ready['b'])
+            action['arg'] = self.player_model.choose_charged_move(state, charged_moves_ready[0], charged_moves_ready[1])
         return action
 
     def choose_force_switch(self, state):

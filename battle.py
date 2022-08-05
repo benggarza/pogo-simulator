@@ -8,7 +8,7 @@ from json import dumps
 
 
 class Battle:
-    def __init__(self, gm):
+    def __init__(self, gm, verbose=False):
         self.gm = gm
 
         self.turn = 0
@@ -19,7 +19,7 @@ class Battle:
         self.state={}
         self.state_history = []
         self.action_history = []
-        self.verbose = True
+        self.verbose = verbose
 
     def add_players(self, player_a, player_b):
         if player_a.team_empty():

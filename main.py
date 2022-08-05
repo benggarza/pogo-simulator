@@ -10,5 +10,5 @@ random_model = RandomModel()
 a_manual_builder = ManualTeam(gm, a_team_ids)
 b_manual_builder = ManualTeam(gm, b_team_ids)
 
-mm = ModelMaster(gm, a_manual_builder, random_model, b_manual_builder, random_model, 10)
+mm = ModelMaster(gm, a_manual_builder, random_model, b_manual_builder, random_model, 1)
 mm.run()

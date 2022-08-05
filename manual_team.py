@@ -1,5 +1,6 @@
 from team_builder import TeamBuilder
 from game_master import GameMaster
+from random import randint
 class ManualTeam(TeamBuilder):
     def __init__(self, game_master, team_ids):
         self.gm = game_master
@@ -14,9 +15,22 @@ class ManualTeam(TeamBuilder):
 
         # Choose moves, Set IVs, and Calculate highest CP
         for p, pd in zip(team, team_dicts):
-            p.set_ivs(0, 15 ,15)
-            p.set_fast_move(pd['fast_moves'][0])
-            p.set_charged_moves(pd['charged_moves'][0], None)
+            # Simple IV optimizing
+            if cup['name'] == "Master":
+                p.set_ivs(15,15,15)
+            else:
+                p.set_ivs(0,15,15)
+            fast_move = pd['fast_moves'][randint(0, len(pd['fast_moves'])-1)]
+            print(f"For {p.get_name()}, selected fast move {fast_move['name']}")
+            p.set_fast_move(fast_move)
+            charged_move_a = pd['charged_moves'][randint(0, len(pd['charged_moves'])-1)]
+            print(f"For {p.get_name()}, selected first charged move {charged_move_a['name']}")
+            remaining_charged_moves = [c for c in pd['charged_moves'] if c['move_id'] != charged_move_a['move_id']]
+            charged_move_b = None
+            if len(remaining_charged_moves) > 0:
+                charged_move_b = remaining_charged_moves[randint(0, len(remaining_charged_moves)-1)]
+                print(f"For {p.get_name()}, selected second charged move {charged_move_b['name']}")
+            p.set_charged_moves(charged_move_a, charged_move_b)
             cp = p.get_cp()
             level = p.get_level()
             while cp <= cp_limit and level <= 50:

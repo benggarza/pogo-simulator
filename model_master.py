@@ -3,9 +3,9 @@ from battle_engine import BattleEngine
 from player import Player
 from random import randint
 class ModelMaster:
-    def __init__(self, gm, team_builder_a, model_a, team_builder_b, model_b, max_battles, training_interval=5):
+    def __init__(self, gm, team_builder_a, model_a, team_builder_b, model_b, max_battles, training_interval=5, verbose=False):
         self.gm = gm
-        self.battle_engine = BattleEngine(self.gm)
+        self.battle_engine = BattleEngine(self.gm, verbose=verbose)
         self.player_a = Player()
         self.player_b = Player()
         self.model_a = model_a

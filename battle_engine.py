@@ -1,10 +1,11 @@
 from battle import Battle
 class BattleEngine:
-    def __init__(self, gm):
+    def __init__(self, gm, verbose=False):
         self.gm = gm
+        self.verbose=verbose
 
-    def new_battle(self, player_a, player_b, cup):
-        b = Battle(self.gm)
+    def new_battle(self, player_a, player_b, cup,):
+        b = Battle(self.gm, verbose=self.verbose)
         if player_a.team_empty() or player_b.team_empty():
             raise Exception("Error: player team not set")
 

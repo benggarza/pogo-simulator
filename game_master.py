@@ -14,8 +14,6 @@ class GameMaster:
         self.move_master = pd.DataFrame(self.game_master['moves']) # fast moves have non-zero 'energyGain', charge moves have non-zero 'energy'
         self.shadow_master = pd.DataFrame(self.game_master['shadowPokemon'], columns=['pokemonId'])
 
-        print(self.pokemon_master)
-
         self.pokemon_ids = self.pokemon_master['speciesId'].to_list()
         self.fast_move_ids = self.move_master[self.move_master['energyGain'] > 0]['moveId']
         self.charged_move_ids = self.move_master[self.move_master['energy'] > 0]['moveId']
