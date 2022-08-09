@@ -54,7 +54,7 @@ class ModelMaster:
                 if self.train:
                     self.model_a.train((self.state_history, self.action_history))
                     self.model_b.train((self.state_history, self.action_history))
-                self.write_history()
+                #self.write_history()
             
             print(f"Player {history['winner']} wins by a margin of {history['win_margin']}")
             battle_num += 1
@@ -63,7 +63,7 @@ class ModelMaster:
         print(f"After {battle_num-1} battles, player A has {self.record['A']} wins, and player B has {self.record['B']} wins")
 
         # Save any leftover data
-        self.write_history()
+        #self.write_history()
 
     def write_history(self):
         state_history_df = pd.concat([pd.read_json('state_history.json', typ='series', orient='records'), pd.Series(self.state_history)], ignore_index=True)

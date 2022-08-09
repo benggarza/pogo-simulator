@@ -83,43 +83,48 @@ class Battle:
         
         # Get player actions
         # Indicate if a charged move is queued
-        charged_move_queued = False
         for player in self.players.values():
-            action = player.get_action(self.state)
-            self.action_queue.append(action)
-            if action['type'] == 'charged':
-                charged_move_queued = True
+            if player.get_lead().get_cooldown() == 0:
+                action = player.get_action(self.state)
+                self.action_queue.append(action)
 
         turn_action_queue = []
         charged_move_this_turn = {'a': False, 'b': False}
         # Check validity of each action and evaluate priority
         # Indicate if a charged move will be used this turn for CMP
         self.log(f"\tstep(), turn {self.turn}: PROCESSING QUEUED ACTIONS")
-        for action in self.action_queue:
+        action_i = 0
+        while action_i < len(self.action_queue):
+            action = self.action_queue[action_i]
             action_turn = action['turn']
             action_player = self.players[action['player']]
             action_type = action['type']
             action_arg = action['arg']
-            self.log(f"\tstep(), turn {self.turn}: processing queued action {action}")
+            action_poke = action_player.get_team()[action['pokemon']]
+            self.log(f"\tstep(), turn {self.turn}: processing queued action: {self.action_str(action)}")
 
             valid = False
-            if action_type == "fast":
+            remove = False
+            # if player attempting to queue a move with a current cooldown, remove the action
+            if action_turn == self.turn and action_poke.get_cooldown() > 0:
+                    self.log(f"\tstep(), turn {self.turn}: removing action {self.action_str(action)} because pokemon {action_poke.get_name()} cooldown is non-zero")
+                    remove = True
+            # fast move becomes "valid" when it is time to deal damage
+            elif action_type == "fast":
                 prev_action = action_player.get_prev_action()['type']
-                
-                if self.turn - action_turn >= action_player.get_lead().get_fast_move()['cooldown'] - 1:
+                # If player attempting to queue a move with no cooldown, then "start" the move by starting the cooldown
+                if action_turn == self.turn and action_poke.get_cooldown() == 0:
+                    action_poke.start_cooldown()
+                # if pokemon cooldown is 1, then fast move can now deal damage     
+                if action_poke.get_cooldown() == 1:
                     valid = True
                     action['priority'] += 20
-                    self.log(f"\tstep(), turn {self.turn}: Action {action} given higher priority for waiting the required time to pass")
-                elif charged_move_queued:
-                    valid = True
-                    action['priority'] -= 20
-                    self.log(f"\tstep(), turn {self.turn}: Action {action} given lower priority because a charged move is queued")
+                    self.log(f"\tstep(), turn {self.turn}: Action {self.action_str(action)} given higher priority for waiting the required time to pass")
                 
             elif action_type == "charged":
-                attacker = action_player.get_lead()
-                if attacker.get_energy() < attacker.get_charged_move(action_arg)['energy_cost']:
-                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because pokemon {attacker.get_name()} (energy {attacker.get_energy()}) doesn't have enough energy for charged move {attacker.get_charged_move(action_arg)['name']}")
-                    self.action_queue.remove(action)
+                if action_poke.get_energy() < action_poke.get_charged_move(action_arg)['energy_cost']:
+                    self.log(f"\tstep(), turn {self.turn}: removing action {self.action_str(action)} because pokemon {attacker.get_name()} (energy {attacker.get_energy()}) doesn't have enough energy for charged move {attacker.get_charged_move(action_arg)['name']}")
+                    remove = True
                 else:
                     # CMP Calculation
                     charged_move_this_turn[action_player.get_player()] = True
@@ -133,30 +138,38 @@ class Battle:
                             self.log(f"\tstep(), turn {self.turn}: CMP goes to {defender.get_name()}")
                             action['priority'] -= 10
                     valid = True
+            # does a switch get priority over charged moves? for now assume switches happen last
             elif action_type == "switch":
                 if action_player.get_switch_timer() > 0:
-                    self.log(f"\tstep(), turn {self.turn}: removing action {action} because player {action_player.get_player()}'s switch timer is on")
-                    self.action_queue.remove(action)
+                    self.log(f"\tstep(), turn {self.turn}: removing action {self.action_str(action)} because player {action_player.get_player()}'s switch timer is on")
+                    remove = True
                 else:
                     valid = True
+                    action['priority'] -= 20
             elif action_type == "wait":
                 valid = True
 
             if valid:
                 turn_action_queue.append(action)
                 self.action_queue.remove(action)
+            elif remove:
+                self.action_queue.remove(action)
+            else:
+                action_i += 1
+
                 
         # Sort actions based on priority
         turn_action_queue.sort(key=lambda action: action['priority'], reverse=True)
 
         # Execute actions in priority order
         charged_move_executed = {'a': False, 'b': False}
+        priority_move_used = {'a': 0, 'b': 0}
         self.log(f"\tstep(), turn {self.turn}: PROCESSING TURN ACTIONS")
         while len(turn_action_queue) > 0:
             # Dequeue action from queue
             action = turn_action_queue[0]
             turn_action_queue.remove(action)
-            self.log(f"\tstep(), turn {self.turn}: processing turn action {action}")
+            self.log(f"\tstep(), turn {self.turn}: processing turn action {self.action_str(action)}")
 
             action_turn = action['turn']
             action_player = self.players[action['player']]
@@ -167,21 +180,37 @@ class Battle:
 
             valid = True
 
-            # We let two opposing fast moves execute even if one makes a pokemon faint first (what about priority fast moves?)
-            if action_type == 'fast' and (action_defender.fainted() or (True in charged_move_executed.values() and action_attacker.fainted())):
-                self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because either opponent is already fainted or pokemon was fainted by a charged move")
-                valid = False
+            # Runtime conditions to invalidate a processed move
+            if action_type == 'fast':
+                # Don't beat a dead horse
+                if action_defender.fainted():
+                    self.log(f"\tstep(), turn {self.turn}: Action  not being executed because opponent is already fainted")
+                    valid = False
+                # pokemon don't get to sneak in a fast move if a charged move faints them
+                elif True in charged_move_executed.values() and action_attacker.fainted():
+                    self.log(f"\tstep(), turn {self.turn}: Action {self.action_str(action)} not being executed because pokemon was fainted by a charged move")
+                    valid = False
+                # higher priority fast moves have the opportunity to faint a pokemon before they receive damage
+                elif priority_move_used[action_player.get_opponent().get_player()] > action['priority'] and action_attacker.fainted():
+                    self.log(f"\tstep(), turn {self.turn}: Action {self.action_str(action)} not being executed because pokemon was fainted by a higher priority fast move")
+                    valid = False
+                else:
+                # record the priority of the fast move executed for future moves to reference
+                    priority_move_used[action['player']] = action['priority']
             elif action_type =='charged':
+                # only one charged move per turn
                 if True in charged_move_executed.values():
-                    self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because a previous charged move was executed")
+                    self.log(f"\tstep(), turn {self.turn}: Action {self.action_str(action)} not being executed because a previous charged move was executed")
                     valid = False
                 else:
                     charged_move_executed[action['player']] = True
-            elif action_attacker.fainted():
-                self.log(f"\tstep(), turn {self.turn}: Action {action} not being executed because pokemon fainted by prior move this turn")
+
+            if action['pokemon'] != action_attacker.get_team_index():
+                self.log(f"\tstep(), turn {self.turn}: Action {self.action_str(action)} not being executed because lead has changed since action was queued")
                 valid = False
+
             if valid:
-                self.log(f"\tstep(), turn {self.turn}: {action}")
+                self.log(f"\tstep(), turn {self.turn}: Executing {self.action_str(action)}")
                 self.execute_action(action)
                 self.record_action(action)
 
@@ -204,6 +233,8 @@ class Battle:
                 if poke.fainted():
                     self.log(f"\tstep(), turn {self.turn}: forcing player {player.get_player()} to switch")
                     self.force_switch(player)
+                    # if we do a force switch, completely reset the action queue
+                    self.action_queue = []
 
         return None
 
@@ -240,6 +271,11 @@ class Battle:
             player.swap_lead(switch_poke)
             self.leads[player.player_label] = switch_poke
             player.start_switch_timer()
+            # remove all player's queued actions after a switch
+            for a in self.action_queue:
+                if a['player'] == action['player'] and a['pokemon'] != switch_poke.get_team_index():
+                    self.log(f"\texecute_action(), turn {self.turn}: removing action {self.action_str(a)} after a switch")
+                    self.action_queue.remove(a)
 
             message += f"switches in {switch_poke.name}"
         elif action_type =='fast' or action_type == 'charged':
@@ -285,8 +321,9 @@ class Battle:
                 defender.boost_def(move['defender_def_boost'])
 
             # reset cooldown
-            if action_type=='fast':
-                attacker.start_cooldown()
+            if action_type == 'charged':
+                attacker.decrease_cooldown(turns=attacker.get_cooldown())
+                defender.decrease_cooldown(turns=defender.get_cooldown())
             
              
         else: # action is wait
@@ -332,6 +369,13 @@ class Battle:
     def log(self, stmt):
         if self.verbose:
             print(stmt)
+        
+    def action_str(self, action):
+        s = f"(T{action['turn']}, pri{action['priority']}, P{action['player']}, p{action['pokemon']}, {action['type']}"
+        if action['arg'] is not None:
+            s += f"{action['arg']}"
+        s += ")"
+        return s
 
     def print_battle_state(self):
         self.log(f"\nTurn: {self.turn}")

@@ -69,7 +69,7 @@ class Player:
 
     def get_action(self, state):
 
-        action = {'turn': state['turn'], 'player': self.player_label, 'type': None, 'arg': None, 'priority': 0}
+        action = {'turn': state['turn'], 'player': self.player_label, 'pokemon': self.lead_index,'type': None, 'arg': None, 'priority': 0}
 
         ### can we switch, and do we want to switch?
         if (self.switch_timer == 0 and self.get_num_remaining_pokemon() > 1) and self.player_model.decide_switch(state):

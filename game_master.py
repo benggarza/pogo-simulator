@@ -26,11 +26,19 @@ class GameMaster:
 
     # not to be used outside of GameMaster
     def __get_pokemon_entry(self, pokemon_id):
-        return self.pokemon_master[self.pokemon_master['speciesId'] == pokemon_id].iloc[0]
+        query = self.pokemon_master[self.pokemon_master['speciesId'] == pokemon_id]
+        if len(query) == 0:
+            return None
+        else:
+            return query.iloc[0]
 
     # not to be used outside of GameMaster
     def __get_move_entry(self, move_id):
-        return self.move_master[self.move_master['moveId'] == move_id].iloc[0]
+        query = self.move_master[self.move_master['moveId'] == move_id]
+        if len(query) == 0:
+            return None
+        else:
+            return query.iloc[0]
 
     # Formatted and flattened pokemon dictionary for team builder 
     def get_pokemon_dict(self, pokemon_id):
@@ -38,13 +46,15 @@ class GameMaster:
         p = {'pokemon_id': pokemon_id, 'name': entry['speciesName'],
                 'base_atk': entry['baseStats']['atk'], 'base_def': entry['baseStats']['def'], 'base_sta': entry['baseStats']['hp'],
                 'types': [entry['types'][0], entry['types'][1] if entry['types'][1] != 'none' else None],
-                'fast_moves': [self.get_fast_move(fid) for fid in entry['fastMoves']],
-                'charged_moves': [self.get_charged_move(cid) for cid in entry['chargedMoves']],
+                'fast_moves': [self.get_fast_move(fid) for fid in entry['fastMoves'] if self.get_fast_move(fid) is not None],
+                'charged_moves': [self.get_charged_move(cid) for cid in entry['chargedMoves'] if self.get_charged_move(cid) is not None],
                 'can_shadow': pokemon_id in self.shadow_master}
+        print(p['fast_moves'])
+        print(p['charged_moves'])
         return p
 
     def get_all_pokemon_ids(self):
-        return self.pokemon_ids
+        return self.pokemon_ids.copy()
 
     # Create a Pokemon object with base stats
     def new_pokemon(self, pokemon_id):
@@ -56,6 +66,9 @@ class GameMaster:
 
     def get_fast_move(self, move_id):
         entry = self.__get_move_entry(move_id)
+        if entry is None:
+            print(f"Couldn't find move {move_id}")
+            return None
         f = {'move_id': move_id, 'name': entry['name'],
                 'type': entry['type'], 'power': entry['power'],
                 'energy_gain': entry['energyGain'], 'cooldown': entry['cooldown']/ 500}
@@ -63,6 +76,8 @@ class GameMaster:
 
     def get_charged_move(self, move_id):
         entry = self.__get_move_entry(move_id)
+        if entry is None:
+            return None
         c = {'move_id': move_id, 'name': entry['name'],
                 'type': entry['type'], 'power': entry['power'],
                 'energy_cost': entry['energy'], 'cooldown': entry['cooldown']/ 500}

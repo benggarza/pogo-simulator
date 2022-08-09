@@ -112,6 +112,8 @@ class Pokemon:
         return self.charged_moves
 
     def get_charged_move(self, label):
+        if label == 'b' and not self.has_second_charged():
+            raise Exception("Error: Attempted to get second charged move when Pokemon does not have a second charged move")
         return self.charged_moves[label]
 
     def set_shadow(self, shadow):
@@ -206,7 +208,7 @@ class Pokemon:
         return self.pokemon_id
 
     def __str__(self):
-        s = f"{self.name} | CP {self.cp} | IV{self.atk_iv}/{self.def_iv}/{self.sta_iv} | "
+        s = f"{self.team_index}: {self.name} | CP {self.cp} | IV{self.atk_iv}/{self.def_iv}/{self.sta_iv} | "
         s += f"{self.fast_move['name']}"
         s += f"/{self.charged_moves['a']['name']}"
         s += "(READY)" if self.charged_moves['a'] in self.get_ready_charged() else ""
