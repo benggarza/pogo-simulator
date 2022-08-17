@@ -77,6 +77,7 @@ class Pokemon:
         self.cooldown = 0
         self.hp = floor(self.sta_stat)
         self.energy = 0
+        self.shown = False
     
     def set_team_index(self, ind):
         self.team_index = ind
@@ -89,6 +90,9 @@ class Pokemon:
 
     def has_been_shown(self):
         return self.shown
+
+    def set_shown(self):
+        self.shown = True
 
     def get_hp(self):
         return self.hp

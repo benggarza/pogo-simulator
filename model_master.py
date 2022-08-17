@@ -3,6 +3,7 @@ from battle_engine import BattleEngine
 from player import Player
 from random import randint
 import pandas as pd
+from os.path import exists
 class ModelMaster:
     def __init__(self, gm, team_builder_a, model_a, team_builder_b, model_b, max_battles, training_interval=5, verbose=False, train=False):
         self.gm = gm
@@ -54,7 +55,7 @@ class ModelMaster:
                 if self.train:
                     self.model_a.train((self.state_history, self.action_history))
                     self.model_b.train((self.state_history, self.action_history))
-                #self.write_history()
+                self.write_history()
             
             print(f"Player {history['winner']} wins by a margin of {history['win_margin']}")
             battle_num += 1
@@ -63,12 +64,18 @@ class ModelMaster:
         print(f"After {battle_num-1} battles, player A has {self.record['A']} wins, and player B has {self.record['B']} wins")
 
         # Save any leftover data
-        #self.write_history()
+        self.write_history()
 
     def write_history(self):
-        state_history_df = pd.concat([pd.read_json('state_history.json', typ='series', orient='records'), pd.Series(self.state_history)], ignore_index=True)
+        if exists('state_history.json'):
+            state_history_df = pd.concat([pd.read_json('state_history.json', typ='series', orient='records'), pd.Series(self.state_history)], ignore_index=True)
+        else:
+            state_history_df = pd.Series(self.state_history)
         state_history_df.to_json("state_history.json")
-        action_history_df = pd.concat([pd.read_json('action_history.json', typ='series', orient='records'), pd.Series(self.action_history)], ignore_index=True)
+        if exists('action_history.json'):
+            action_history_df = pd.concat([pd.read_json('action_history.json', typ='series', orient='records'), pd.Series(self.action_history)], ignore_index=True)
+        else:
+            action_history_df = pd.Series(self.action_history)
         action_history_df.to_json("action_history.json")
         self.state_history = []
         self.action_history = []

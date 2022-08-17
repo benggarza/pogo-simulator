@@ -41,7 +41,10 @@ class Battle:
             for p in player.team:
                 p.reset_stats()
 
-        print("Starting battle!")      
+        print("Starting battle!")
+        # set leads as shown
+        for p in self.leads.values():
+            p.set_shown()
         # simulation starts here
         while self.turn <= 480:
             # increase timer
@@ -254,6 +257,7 @@ class Battle:
                 switch_poke = party[0]
         player.swap_lead(switch_poke)
         self.leads[player.get_player()] = player.get_lead()
+        player.get_lead().set_shown()
         self.log(f"Player {player.get_player()} switches in {switch_poke.get_name()} with {switch_poke.get_hp()} hp")
 
     def execute_action(self, action):
@@ -270,6 +274,7 @@ class Battle:
             player.get_lead().reset_boosts()
             player.swap_lead(switch_poke)
             self.leads[player.player_label] = switch_poke
+            player.get_lead().set_shown()
             player.start_switch_timer()
             # remove all player's queued actions after a switch
             for a in self.action_queue:

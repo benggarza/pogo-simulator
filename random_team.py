@@ -2,11 +2,7 @@ from team_builder import TeamBuilder
 from game_master import GameMaster
 from random import randint
 class RandomTeam(TeamBuilder):
-    def __init__(self, game_master):
-        self.gm = game_master
-
     def choose_team(self, cup):
-        cp_limit = cup['cp']
         pokemon_ids = self.gm.get_all_pokemon_ids()
         team_ids = []
         for i in range(3):
@@ -36,15 +32,7 @@ class RandomTeam(TeamBuilder):
                 charged_move_b = remaining_charged_moves[randint(0, len(remaining_charged_moves)-1)]
                 print(f"For {p.get_name()}, selected second charged move {charged_move_b['name']}")
             p.set_charged_moves(charged_move_a, charged_move_b)
-            cp = p.get_cp()
-            level = p.get_level()
-            while cp <= cp_limit and level <= 50:
-                cpm = self.gm.get_cpm(level)
-                p.set_level_cpm(level, cpm)
-                cp = p.get_cp()
-                level += 0.5
-            # Drop by one level too keep cp under limit
-            p.set_level_cpm(level-1.0, self.gm.get_cpm(level-1.0))
+            self.set_cp(p, cup)
 
         print("TEAM")
         for p in team:
