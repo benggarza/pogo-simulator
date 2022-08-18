@@ -53,8 +53,8 @@ class ModelMaster:
             # At given interval, train models on new history data and save history data to file
             if battle_num % self.training_interval == 0:
                 if self.train:
-                    self.model_a.train((self.state_history, self.action_history))
-                    self.model_b.train((self.state_history, self.action_history))
+                    self.model_a.train(self.state_history, self.action_history)
+                    self.model_b.train(self.state_history, self.action_history)
                 self.write_history()
             
             print(f"Player {history['winner']} wins by a margin of {history['win_margin']}")

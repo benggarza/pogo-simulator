@@ -18,3 +18,8 @@ mm.run()
 
 state_history = pd.read_json('state_history.json', typ='series', orient='records')
 action_history = pd.read_json('action_history.json', typ='series', orient='records')
+
+#print(pd.DataFrame(action_history[0]))
+print(pd.DataFrame(state_history[0]))
+#print(state_history.to_list()[0][0])
+#print(action_history.to_list()[0])

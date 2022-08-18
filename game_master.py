@@ -80,10 +80,15 @@ class GameMaster:
             return None
         c = {'move_id': move_id, 'name': entry['name'],
                 'type': entry['type'], 'power': entry['power'],
-                'energy_cost': entry['energy'], 'cooldown': entry['cooldown']/ 500}
+                'energy_cost': entry['energy'], 'cooldown': entry['cooldown']/ 500,
+                'attacker_atk_boost': 0, 'attacker_atk_boost_chance': 0,
+                'attacker_def_boost': 0, 'attacker_def_boost_chance': 0,
+                'defender_atk_boost': 0, 'defender_atk_boost_chance': 0,
+                'defender_def_boost': 0, 'defender_def_boost_chance': 0
+                }
         if entry['buffTarget'] == 'self':
             if entry['buffs'][0] != 0:
-                c['attacker_atk_boost'] = entry['buffs'][0]
+                c['attacker_atk_boost'] = entry['buffs'][0] 
                 c['attacker_atk_boost_chance'] = float(entry['buffApplyChance'])
             if entry['buffs'][1] != 0:
                 c['attacker_def_boost'] = entry['buffs'][1]

@@ -314,16 +314,17 @@ class Battle:
                 message += f", player {opponent.get_player()} uses shield"
             attacker.add_energy(energy_delta)
 
-            # calculate buffs/debuffs
-            if 'attacker_atk_boost' in move.keys() and random() < move['attacker_atk_boost_chance']:
-                attacker.boost_atk(move['attacker_atk_boost'])
-            if 'attacker_def_boost' in move.keys() and random() < move['attacker_def_boost_chance']:
-                attacker.boost_def(move['attacker_def_boost'])
+            if action_type == 'charged':
+                # calculate buffs/debuffs
+                if random() < move['attacker_atk_boost_chance']:
+                    attacker.boost_atk(move['attacker_atk_boost'])
+                if random() < move['attacker_def_boost_chance']:
+                    attacker.boost_def(move['attacker_def_boost'])
 
-            if 'defender_atk_boost' in move.keys() and random() < move['defender_atk_boost_chance']:
-                defender.boost_atk(move['defender_atk_boost'])
-            if 'defender_def_boost' in move.keys() and random() < move['defender_def_boost_chance']:
-                defender.boost_def(move['defender_def_boost'])
+                if random() < move['defender_atk_boost_chance']:
+                    defender.boost_atk(move['defender_atk_boost'])
+                if random() < move['defender_def_boost_chance']:
+                    defender.boost_def(move['defender_def_boost'])
 
             # reset cooldown
             if action_type == 'charged':
@@ -339,7 +340,9 @@ class Battle:
         self.log(message)
 
     def record_action(self, action):
-        self.action_history.append(deepcopy(action))
+        action_copy = deepcopy(action)
+        action_copy['turn_executed'] = self.turn
+        self.action_history.append(action_copy)
 
     def end_game(self):
         # record final game state
@@ -364,9 +367,22 @@ class Battle:
 
                 
     def update_state(self):
-        self.state['turn'] = self.turn
-        self.state['player_a'] = self.players['a'].state_dict()
-        self.state['player_b'] = self.players['b'].state_dict()
+        nested_state = {}
+        nested_state['turn'] = self.turn
+        nested_state.update(self.players['a'].state_dict())
+        nested_state.update(self.players['b'].state_dict())
+        self.state = self.flatten_state(nested_state)
+
+    def flatten_state(self, state: dict):
+        flat_state = {}
+        for key, value in state.items():
+            if not isinstance(value, dict):
+                flat_state[key] = value
+            else:
+                sub_dict = self.flatten_state(value)
+                for sub_key, sub_value in sub_dict.items():
+                    flat_state[key + '.' + sub_key] = sub_value
+        return flat_state
 
     def record_state(self):
         self.state_history.append(deepcopy(self.state))

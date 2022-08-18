@@ -2,13 +2,13 @@
 
 class PlayerModel:
 
-    def load_model(self):
-        raise NotImplementedError("Error: load_model not implemented for this model")
+    #def load_model(self):
+        #raise NotImplementedError("Error: load_model not implemented for this model")
 
     def build_model(self):
         raise NotImplementedError("Error: build_model not implemented for this model")
 
-    def train(self, data):
+    def train(self, state_history, action_history):
         raise NotImplementedError("Error: train not implemented for this model")
 
     def decide_switch(self, state):

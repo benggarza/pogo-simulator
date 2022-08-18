@@ -12,7 +12,7 @@ class RandomModel(PlayerModel):
         pass
     def build_model(self):
         pass
-    def train(self, data):
+    def train(self, state_history, action_history):
         pass
     def decide_switch(self, state):
         return True if random() < self.switch_rate else False
